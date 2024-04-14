@@ -1,0 +1,7 @@
+Write-Host -ForegroundColor Blue "  _    __           __              ___    ____  "
+Write-Host -ForegroundColor Blue " | |  / /__  ____  / /_____  __  __/   |  / __ \"
+Write-Host -ForegroundColor Blue " | | / / _ \/ __ \/ __/ __ \/ / / / /| | / /_/ /"
+Write-Host -ForegroundColor Blue " | |/ /  __/ / / / /_/ /_/ / /_/ / ___ |/ ____/ "
+Write-Host -ForegroundColor Blue " |___/\___/_/ /_/\__/\____/\__, /_/  |_/_/      "
+Write-Host -ForegroundColor Blue "                          /____/                "
+Write-Host -ForegroundColor Blue "Welcome to VentoyAP 1.0"
