@@ -23,15 +23,15 @@ function Select-ISO {
         }
     }
     while ($true){
-        $input = Read-Host "Select the ISO to configure auto-install for (1-$($ISOFiles.Count)) or enter c to cancel"
+        $ISOinput = Read-Host "Select the ISO to configure auto-installs for (1-$($ISOFiles.Count)) or enter c to cancel"
         try {
-            $numInput = [int]$input
+            $numInput = [int]$ISOinput
         } catch {
             $numInput = 0
         }
         if($numInput -ge 1 -and [int]$input -le $ISOFiles.Count) {
             return $ISOFiles[$numInput - 1].Name
-        } elseif ($input -eq "c") {
+        } elseif ($ISOinput -eq "c") {
             Exit
         } else {
             Write-Host "Invalid selection, please try again" -ForegroundColor Red
