@@ -29,7 +29,7 @@ function Select-ISO {
         } catch {
             $numInput = 0
         }
-        if($numInput -ge 1 -and [int]$input -le $ISOFiles.Count) {
+        if($numInput -ge 1 -and [int]$ISOinput -le $ISOFiles.Count) {
             return $ISOFiles[$numInput - 1].Name
         } elseif ($ISOinput -eq "c") {
             Exit
