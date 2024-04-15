@@ -11,40 +11,24 @@ $VentoyPath = "$PSScriptRoot\ventoy"
 $VentoyJson = "$VentoyPath\ventoy.json"
 $AutoPilotPath = "$PSScriptRoot\AutoPilot"
 $AutoPilotScriptPath = "$AutoPilotPath\Scripts"
-$ISOPath = "$PSSriptRoot"
 
 Import-Module "$AutoPilotScriptPath\VentoyAPHelpers.psm1"
 
-# Find all ISO files in the current directory
-$ISOFiles = Get-ChildItem -Path $ISOPath -Filter *.iso
-if ($ISOFiles.Count -eq 0) {
-    Write-Host "No ISO files found in the current directory. Exiting.." -ForegroundColor Yellow
-    Exit
-}
-
-# Check congig for auto-install ISOs
-if (Test-Path $VentoyJson) {
-    $ConfigExists = $TRUE
-    $VentoyJsonContent = Get-Content $VentoyJson | ConvertFrom-Json -ErrorAction Stop
-    $AutoInstallISOs = $VentoyJsonContent.auto_install
-    
-} else {
-    $ConfigExists = $FALSE
-    $AutoInstallISOs = @()
-}
-
+$AutoInstallISOs = Get-AutoInstalls -VentoyJson $VentoyJson
 if ($AutoInstallISOs.Count -eq 0) {
-    if($ConfigExists) {
+    if (Test-Path $VentoyJson) {
         Write-Host "No auto-install ISOs found in ventoy.json lets set them up!"
     } else {
         Write-Host "No ventoy.json found, lets generate one"
     }
     
-    $ISO = Select-ISO -AutoInstallISOs $AutoInstallISOs -ISOFiles $ISOFiles -BasePath $PSScriptRoot
+    $ISO = Select-ISO -BasePath $PSScriptRoot -VentoyJson $VentoyJson
     Write-Host "Selected ISO: $ISO"
 } else {
     Write-Host "Auto-install ISOs found in ventoy.json:"
-    $ISO = Select-ISO -AutoInstallISOs $AutoInstallISOs -ISOFiles $ISOFiles -BasePath $PSScriptRoot
+    $ISO = Select-ISO -BasePath $PSScriptRoot -VentoyJson $VentoyJson
     Write-Host "Selected ISO: $ISO"
 }
 
+
+Remove-Module VentoyAPHelpers

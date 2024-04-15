@@ -1,9 +1,38 @@
-function Select-ISO {
+function Get-ISOs {
     param (
-        [Parameter(Mandatory=$TRUE)]$AutoInstallISOs,
-        [Parameter(Mandatory=$TRUE)]$ISOFiles,
         [Parameter(Mandatory=$TRUE)]$BasePath
     )
+    $ISOFiles = Get-ChildItem -Path $ISOPath -Filter *.iso
+    if ($ISOFiles.Count -eq 0) {
+        Write-Host "No ISO files found in the current directory. Exiting.." -ForegroundColor Yellow
+        Exit
+    } else {
+        return $ISOFiles
+    }
+}
+
+function Get-AutoInstalls {
+    param (
+        [Parameter(Mandatory=$TRUE)]$VentoyJson
+    )
+    if (Test-Path $VentoyJson) {
+        $VentoyJsonContent = Get-Content $VentoyJson | ConvertFrom-Json -ErrorAction Stop
+        $AutoInstallISOs = $VentoyJsonContent.auto_install
+    } else {
+        $AutoInstallISOs = @()
+    }
+    return $AutoInstallISOs
+}
+
+function Select-ISO {
+    param (
+        [Parameter(Mandatory=$TRUE)]$BasePath,
+        [Parameter(Mandatory=$TRUE)]$VentoyJson
+    )
+
+    $AutoInstallISOs = Get-AutoInstalls -VentoyJson $VentoyJson
+    $ISOFiles = Get-ISOs -BasePath $BasePath
+
     $i = 0
     foreach ($ISOFile in $ISOFiles) {
         $i++
