@@ -7,9 +7,9 @@ Write-Host "                          /____/                 "  -ForegroundColor
 Write-Host "            Welcome to VentoyAP 1.0              "  -ForegroundColor Green
 
 # Initialize variables
-$VentoyPath = "$PSSriptRoot\ventoy"
+$VentoyPath = "$PSScriptRoot\ventoy"
 $VentoyJson = "$VentoyPath\ventoy.json"
-$AutoPilotPath = "$PSSriptRoot\AutoPilot"
+$AutoPilotPath = "$PSScriptRoot\AutoPilot"
 $AutoPilotScriptPath = "$AutoPilotPath\Scripts"
 $ISOPath = "$PSSriptRoot"
 
