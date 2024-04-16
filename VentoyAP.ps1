@@ -41,15 +41,15 @@ function Get-AutoInstallMenu {
                     Write-Host "$i - $($UnattendFile.Name)"
                 }
             }
-            $profile = Read-Host "Select a profile to add/remove (1-$($UnattendFiles.Count)), enter n for new or enter b to go back"
+            $APProfile = Read-Host "Select a profile to add/remove (1-$($UnattendFiles.Count)), enter n for new or enter b to go back"
             Write-Host ""
 
             try {
-                $numInput = [int]$profile
+                $numInput = [int]$APProfile
             } catch {
                 $numInput = 0
             }
-            if([int]$numInput -ge 1 -and [int]$profile -le $UnattendFiles.Count) {
+            if([int]$numInput -ge 1 -and [int]$APProfile -le $UnattendFiles.Count) {
                 $UnattendFile = $UnattendFiles[$numInput - 1]
                 $active = $AutoInstalls.template -contains "/AutoPilot/$($UnattendFile.Name)"
                 if($active){
@@ -59,9 +59,9 @@ function Get-AutoInstallMenu {
                     Write-Host "Adding AutoInstall $($UnattendFile.Name) for $ISO" -ForegroundColor Green
                     Add-AutoInstall -VentoyJson $VentoyJson -ISO $ISO -UnattendFile $UnattendFile.Name
                 }
-            } elseif ($profile -eq "n") {
+            } elseif ($APProfile -eq "n") {
                 New-APProfile -AutoPilotPath $AutoPilotPath
-            }elseif($profile -eq "b") {
+            }elseif($APProfile -eq "b") {
                 break
             }
         }
