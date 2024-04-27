@@ -349,7 +349,7 @@ function New-APProfile {
         }
         
         Write-Host "Getting AutoPilot Profile Assignment Details..."
-        $assignmentDetails = Get-AutoPilotProfileAssignmentDetails -profileAssignments $profileAssignments
+        $assignmentDetails = Get-AutoPilotProfileAssignmentDetails -profileAssignments $profileAssignments -profileId $APProfile.id
 
         $methods = @()
         if($assignmentDetails -eq @()) {

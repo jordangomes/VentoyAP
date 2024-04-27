@@ -113,7 +113,8 @@ function Remove-AutoInstall {
 
 function Get-AutoPilotProfileAssignmentDetails {
     param (
-        $profileAssignments
+        $profileAssignments,
+        $profileId
     )
     $assignmentDetails = @()
     foreach($assignment in $profileAssignments) {
@@ -126,7 +127,7 @@ function Get-AutoPilotProfileAssignmentDetails {
             if($response.groupTypes -contains "DynamicMembership" -and $response.membershipRuleProcessingState -eq "On") {
                 $groupDetails.isDynamic = $true
                 $groupDetails.dynamicRule = $response.membershipRule
-                if($response.membershipRule -contains "OfflineAutopilotProfile-$($response.id)") {
+                if($response.membershipRule -like "*OfflineAutopilotProfile-$profileId*") {
                     $groupDetails.targetsOfflineJoin = $true
                 } else {
                     $groupDetails.targetsOfflineJoin = $false
