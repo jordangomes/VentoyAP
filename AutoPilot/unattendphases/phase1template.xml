@@ -11,7 +11,6 @@
             <InputLocale>{{InputLocale}}</InputLocale>
             <SystemLocale>{{SystemLocale}}</SystemLocale>
             <UILanguage>{{UILanguage}}</UILanguage>
-            <UILanguageFallback>{{UILanguageFallback}}</UILanguageFallback>
             <UserLocale>{{UserLocale}}</UserLocale>
         </component>
         <component name="Microsoft-Windows-Setup" processorArchitecture="amd64"
