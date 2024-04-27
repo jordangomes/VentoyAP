@@ -1,6 +1,15 @@
-Install-Module Communary.PASM -Force
+$module = Import-Module Communary.PASM -PassThru -ErrorAction Ignore
+if (-not $module) {
+    Write-Host "Installing Required Modules" -ForegroundColor Green
+    $provider = Get-PackageProvider NuGet -ErrorAction Ignore
+    if (-not $provider) {
+        Write-Host "Installing provider NuGet"
+        Find-PackageProvider -Name NuGet -ForceBootstrap -IncludeDependencies
+    }
+    Write-Host "Installing Communary.PASM"
+    Install-Module Communary.PASM -Force
+}
 Import-Module Communary.PASM
-
 <#
     .Synopsis
     Allows selection of a single item from a list of items.
