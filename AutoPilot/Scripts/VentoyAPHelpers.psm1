@@ -110,3 +110,36 @@ function Remove-AutoInstall {
         Write-Host "No auto-installs found for $ISO" -ForegroundColor Yellow 
     }
 }
+
+function Get-AutoPilotProfileAssignmentDetails {
+    param (
+        $profileAssignments
+    )
+    $assignmentDetails = @()
+    foreach($assignment in $profileAssignments) {
+        if($assignment.target."@odata.type" -eq "#microsoft.graph.groupAssignmentTarget") {
+            Write-Host "Getting group details for: $($assignment.target.groupId)"
+            $response = Invoke-MGGraphRequest -Uri "https://graph.microsoft.com/beta/groups/$($assignment.target.groupId)" -Method Get
+            $groupDetails = "" | Select-Object id, displayName, isDynamic, targetsOfflineJoin, dynamicRule
+            $groupDetails.id = $response.id
+            $groupDetails.displayName = $response.displayName
+            if($response.groupTypes -contains "DynamicMembership" -and $response.membershipRuleProcessingState -eq "On") {
+                $groupDetails.isDynamic = $true
+                $groupDetails.dynamicRule = $response.membershipRule
+                if($response.membershipRule -contains "OfflineAutopilotProfile-$($response.id)") {
+                    $groupDetails.targetsOfflineJoin = $true
+                } else {
+                    $groupDetails.targetsOfflineJoin = $false
+                }
+            } else {
+                $groupDetails.isDynamic = $false
+                $groupDetails.dynamicRule = ""
+                $groupDetails.targetsOfflineJoin = $false
+            }
+            $assignmentDetails += $groupDetails
+        } elseif($assignment.target."@odata.type" -eq "#microsoft.graph.allDevicesAssignmentTarget") {
+            $assignmentDetails += "All Devices"
+        }
+    }
+    return $assignmentDetails
+}

@@ -44,9 +44,9 @@ function Get-AutoInstallMenu {
     while ($true) {
         $UnattendFiles = Get-ChildItem -Path $AutoPilotPath -Filter *.xml
         if ($UnattendFiles.Count -eq 0) {
-            $addAPProfile = Get-ListSelection -Title "No AutoPilot profiles found, would you like to create one?" -Items "Yes","No"
+            $addAPProfile = Get-YesNo -Prompt "No AutoPilot profiles found, would you like to create one (y/n)?"
 
-            if($addAPProfile -eq 0) {
+            if($addAPProfile) {
                 New-APProfile
             } else {
                 break
@@ -94,6 +94,13 @@ function Get-AutoInstallMenu {
 
 function New-APProfile {
     Clear-Host
+    $languageSelection = @{}
+    $APProfileName = ""
+    $diskID = ""
+    $key = ""
+    $timezone = ""
+
+    # PROFILE NAME
     while ($true) {
         $APProfileName = Read-Host "Enter the name of the new AutoPilot profile"
         if($APProfileName.IndexOfAny([System.IO.Path]::GetInvalidFileNameChars()) -ne -1) {
@@ -107,9 +114,16 @@ function New-APProfile {
         }
         break
     }
+
+    Clear-Host
+    Write-Host "Now Lets Setup your Windows install options..." -ForegroundColor Green
+    Start-Sleep 2
+    Clear-Host
+
+    # LANGUAGE SELECTION
     while ($true) {
         $languageSelection = @{}
-        $locales = Import-Csv "$AutoPilotPath\Scripts\locales.csv"
+        $locales = Import-Csv "$AutoPilotPath\Scripts\data\locales.csv"
         $systemLocales = $locales | Where-Object { $_.System -eq "Yes" }
 
         $InputLocale = Search-List -Prompt "Please search for a input language e.g. English (Australia)" -Items $locales.LanguageName
@@ -121,9 +135,6 @@ function New-APProfile {
         $SystemLocale = Search-List -Prompt "Please search for a System Locale e.g. English" -Items $systemLocales.LanguageName
         $languageSelection.Add("SystemLocale", $systemLocales[$SystemLocale].BCP47tag)
 
-        $SystemLocaleFallback = Search-List -Prompt "Please search for a System Locale e.g. English" -Items $systemLocales.LanguageName
-        $languageSelection.Add("SystemLocaleFallback", $systemLocales[$SystemLocaleFallback].BCP47tag)
-
         $UserLocale = Search-List -Prompt "Please search for a User locale e.g. English (Australia)" -Items $locales.LanguageName
         $languageSelection.Add("UserLocale", $locales[$UserLocale].BCP47tag)
 
@@ -133,16 +144,267 @@ function New-APProfile {
         Write-Host "Input Locale: $($languageSelection.InputLocale)"
         Write-Host "UI Language: $($languageSelection.UILanguage)"
         Write-Host "System Locale: $($languageSelection.SystemLocale)"
-        Write-Host "System Locale Fallback: $($languageSelection.SystemLocaleFallback)"
         Write-Host "User Locale: $($languageSelection.UserLocale)"
-        $confirm = Read-Host "Is this correct? (y/n) or b to go back"
-        if($confirm -eq "y") {
+        Write-Host ""
+        $confirm = Get-YesNo -Inline -AllowCancel
+        if($confirm -eq $true) {
             break
-        } elseif ($confirm -eq "b"){
+        } elseif ($confirm -eq $false){
+            continue
+        } else {
             return $null
         }
     }
-}
+
+    # DISK SELECTION
+    while ($true) {
+        $InstallDiskOptions = @(
+            "First Non Ventoy Disk"
+            "First Non USB Disk"
+            "Largest Disk"
+            "Disk closest to a certain size"
+            "Fixed Disk ID"
+        )
+        $diskSelection = Get-ListSelection -Title "Select the disk to install Windows on" -Items $InstallDiskOptions -AllowCancel
+
+        $diskID = ""
+        if($diskSelection -eq 0) {
+            $diskID = "`$`$VT_WINDOWS_DISK_1ST_NONVTOY`$`$"
+        } elseif ($diskSelection -eq 1) {
+            $diskID = "`$`$VT_WINDOWS_DISK_1ST_NONUSB`$`$"
+        } elseif ($diskSelection -eq 2) {
+            $diskID = "`$`$VT_WINDOWS_DISK_MAX_SIZE`$`$"
+        } elseif ($diskSelection -eq 3) {
+            Clear-Host
+            while ($true) {
+                $diskSize = Read-Host "Enter the size of the disk in GB"
+                if($diskSize -match "^\d+$") {
+                    $diskID = "`$`$VT_WINDOWS_DISK_CLOSEST_$diskSize`$`$"
+                    break
+                } else {
+                    Write-Host "Please enter a valid number" -ForegroundColor Red
+                }
+            }
+        } elseif ($diskSelection -eq 4) {
+            Clear-Host
+            while ($true) {
+                $possibleDiskID = Read-Host "Enter the Disk ID"
+                if ($possibleDiskID -match "^\d+$") {
+                    $diskID = "$possibleDiskID"
+                    break
+                } else {
+                    Write-Host "Please enter a valid number" -ForegroundColor Red
+                }
+            }
+        } else {
+            return $null
+        }
+
+        Clear-Host
+
+        Write-Host "Please confirm the following disk settings" -ForegroundColor Green
+        Write-Host "Selection: $($InstallDiskOptions[$diskSelection])"
+        Write-Host "DiskID: $($diskID)"
+        Write-Host ""
+        $confirm = Get-YesNo -Inline -AllowCancel
+        if($confirm -eq $true) {
+            break
+        } elseif ($confirm -eq $false){
+            continue
+        } else {
+            return $null
+        }
+    }
+
+    # KEY SELECTION
+    while ($true) {
+        $kmsKeys = Import-Csv "$AutoPilotPath\Scripts\data\kmskeys.csv"
+        $options = @("Use my own key")
+        foreach($kmsKey in $kmsKeys) {
+            $options += "$($kmsKey.Product) (KMS Key)" 
+        }
+        $keyOption = Get-ListSelection -Title "What activation key would you like to use" -Items $options -AllowCancel
+        if($keyOption -eq 0) {
+            $key = Read-Host "Enter the KMS key"
+        } elseif ($keyOption -gt 0 -and $keyOption -le $kmsKeys.Count) {
+            $key = $kmsKeys[$keyOption - 1].Key
+        } else {
+            return $null
+        }
+
+        Clear-Host
+
+        Write-Host "Please confirm the windows key you would like to use" -ForegroundColor Green
+        Write-Host "key: $key"
+        Write-Host ""
+        $confirm = Get-YesNo -Inline -AllowCancel
+        if($confirm -eq $true) {
+            break
+        } elseif ($confirm -eq $false){
+            continue
+        } else {
+            return $null
+        }
+    }
+
+    # TIMEZONE SELECTION
+    while ($true) {
+        $timezones = Import-Csv "$AutoPilotPath\Scripts\data\timezones.csv"
+        $timezoneOption = Search-List -Prompt "Search for a default timezone (esc to quit)" -Items $timezones.Name -AllowCancel
+        
+        if ($timezoneOption -gt 0 -and $timezoneOption -le $timezones.Count - 1) {
+            $timezone = $timezones[$timezoneOption].Timezone
+        } else {
+            return $null
+        }
+
+        Clear-Host
+
+        Write-Host "Please confirm the Timezone you would like to use" -ForegroundColor Green
+        Write-Host "Timezone Name: $($timezones[$timezoneOption].Name)"
+        Write-Host "Timezone: $timezone"
+        Write-Host ""
+        $confirm = Get-YesNo -Inline -AllowCancel
+        if($confirm -eq $true) {
+            break
+        } elseif ($confirm -eq $false){
+            continue
+        } else {
+            return $null
+        }
+    }
+
+    Clear-Host
+    Write-Host "Now Lets Setup your AutoPilot Settings..." -ForegroundColor Green
+    Start-Sleep 2
+    Clear-Host
+
+    
+    $module = Import-Module microsoft.graph.authentication -PassThru -ErrorAction Ignore
+    if (-not $module) {
+        Write-Host "Installing Required Modules" -ForegroundColor Green
+        $provider = Get-PackageProvider NuGet -ErrorAction Ignore
+        if (-not $provider) {
+            Write-Host "Installing provider NuGet"
+            Find-PackageProvider -Name NuGet -ForceBootstrap -IncludeDependencies
+        }
+        Write-Host "Installing module microsoft.graph.authentication"
+        Install-Module Microsoft.Graph.Authentication -Force
+    }
+    Import-Module Microsoft.Graph.Authentication
+
+    $authenticated = $false
+    $attempts = 1
+    while (-not $authenticated) {
+        Write-Host "Login to Microsoft Graph"
+        try {
+            Connect-MgGraph -NoWelcome -ErrorAction Stop
+            $authenticated = $true
+        } catch {
+            if($attempts -ge 3) {
+                Write-Error "Unable to authenticate to Microsoft Graph (3 failed attempts - quitting)`n$_"
+                Start-Sleep -Seconds 10
+                return $null
+            }
+            Write-Error "Unable to authenticate to Microsoft Graph (trying again in 10s)`n$_"
+            Start-Sleep -Seconds 10
+            $attempts++
+        }
+    }
+
+    $graphApiUri = "https://graph.microsoft.com/beta"
+    # PROFILE SELECTION
+    while ($true) {
+        Clear-Host
+        Write-Host "Getting AutoPilot Profiles..."
+        $profiles = @()
+        try {
+            $resource = "deviceManagement/windowsAutopilotDeploymentProfiles"
+            $response = Invoke-MGGraphRequest -Uri "$graphApiUri/$resource" -Method Get
+            $profiles = $response.value
+        } catch {
+            Write-Error "Unable to get AutoPilot Profiles from Microsoft Graph`n$_"
+            Start-Sleep -Seconds 10
+            return $null
+        }
+
+        $profileSeleciton = Get-ListSelection -Title "Select the AutoPilot Profile to use" -Items $profiles.displayName -AllowCancel
+        if($null -eq $profileSeleciton) {
+            return $null
+        } else {
+            $APProfile = $profiles[$profileSeleciton]
+        }
+        
+        Clear-Host
+        Write-Host "Getting AutoPilot Profile Assignments..."
+        $profileAssignments = @()
+        try {
+            $resource = "deviceManagement/windowsAutopilotDeploymentProfiles"
+            $response = Invoke-MGGraphRequest -Uri "$graphApiUri/$resource/$($APProfile.id)?`$expand=assignments" -Method Get
+            $profileAssignments = $response.assignments
+        } catch {
+            Write-Error "Unable to get AutoPilot Profile ($($APProfile.displayName) - $($APProfile.id)) from Microsoft Graph`n$_"
+            Start-Sleep -Seconds 10
+            return $null
+        }
+        
+        Write-Host "Getting AutoPilot Profile Assignment Details..."
+        $assignmentDetails = Get-AutoPilotProfileAssignmentDetails -profileAssignments $profileAssignments
+
+        $methods = @()
+        if($assignmentDetails -eq @()) {
+            Write-Error "Unable to find any assignments for $($APProfile.displayName) (quitting)" -ForegroundColor Yellow
+            Start-Sleep -Seconds 10
+            return $null
+        } else {
+            foreach($assignment in $assignmentDetails) {
+                if($assignment -eq "All Devices") {
+                    $methods += "All Devices (Recommended)"
+                } else {
+                    if ($assignment.targetsOfflineJoin) {
+                        $methods += "$($assignment.displayName) (Offline Join JSON)"
+                    } elseif ($assignment.isDynamic) {
+                        $methods += "$($assignment.displayName) (Dynamic Group)"
+                    } else {
+                        $methods += "$($assignment.displayName) (Static Group)"
+                    }
+                }
+            }
+        }
+    
+        $assignmentMethod = Get-ListSelection -Title "Select the AutoPilot Profile Assignment Method" -Items $methods -AllowCancel
+        if ($null -eq $assignmentMethod) {
+            return $null
+        } else {
+            $assignment = $assignmentDetails[$assignmentMethod]
+        }
+
+        Clear-Host
+        Write-Host "Please confirm the following AutoPilot Profile and Assignment" -ForegroundColor Green
+        Write-Host "Profile: $($APProfile.displayName)"
+        if ($assignment -eq "All Devices") {
+            Write-Host "Assignment Method: All Devices"
+        } else {
+            if ($assignment.targetsOfflineJoin) {
+                Write-Host "Assignment Method: Offline Join JSON"
+                Write-Host "Dynamic Group: $($assignment.displayName)"
+                Write-Host "Dynamic Rule: $($assignment.dynamicRule)"
+            } elseif ($assignment.isDynamic) {
+                Write-Host "Assignment Method: Dynamic Group"
+                Write-Host "Dynamic Group: $($assignment.displayName)"
+                Write-Host "Dynamic Rule: $($assignment.dynamicRule)"
+            } else {
+                Write-Host "Assignment Method: Static Group"
+                Write-Host "Group: $($assignment.displayName)"
+            }
+        }
+        Write-Host ""
+        $confirm = Get-YesNo -Inline -AllowCancel
+    }
+
+    Start-Sleep -Seconds 10
+
+} 
 #endregion
 
 #region Run Script
