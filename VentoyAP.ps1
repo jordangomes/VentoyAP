@@ -138,7 +138,7 @@ function New-APProfile {
         $confirm = Read-Host "Is this correct? (y/n) or b to go back"
         if($confirm -eq "y") {
             break
-        } elseif ($confirm -eq "q"){
+        } elseif ($confirm -eq "b"){
             return $null
         }
     }
