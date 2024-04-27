@@ -457,8 +457,46 @@ function Get-ItemIndexesFuzzyMatch {
     return $results
 }
 
+function Get-YesNo {
+    param(
+        [string] $Prompt = "Yes (y) | No (n)",
+        [System.ConsoleColor] $TitleForegroundColor = "White",
+        [System.ConsoleColor] $TitleBackgroundColor = "Black",
+        [switch] $Inline,
+        [switch] $AllowCancel
+    )
+
+    if(-not $Inline) {
+        Clear-Host
+    }
+
+    if($AllowCancel -and $Prompt -eq "Yes (y) | No (n)") {
+        $Prompt = "Yes (y) | No (n) | Cancel (esc)"
+    }
+
+    if($TitleForegroundColor -eq "White"){
+        Write-Host $Prompt
+    } else {
+        Write-Host $Prompt -ForegroundColor $TitleForegroundColor -BackgroundColor $TitleBackgroundColor
+    }
+    while ($true) {
+        $key = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+        if($key.VirtualKeyCode -eq 89) {
+            return $true
+        } elseif($key.VirtualKeyCode -eq 78){
+            return $false
+        } elseif ($key.VirtualKeyCode -eq 27 -and $AllowCancel) {
+            return $null
+        } else {
+            [console]::beep(400,100)
+        }
+    }
+
+}
+
 Export-ModuleMember -Function Get-ListSelection
 Export-ModuleMember -Function Get-ListMultipleSelection
 Export-ModuleMember -Function Search-List
+Export-ModuleMember -Function Get-YesNo
 
 
