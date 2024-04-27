@@ -379,23 +379,40 @@ function New-APProfile {
             $assignment = $assignmentDetails[$assignmentMethod]
         }
 
+        $AllDevicesOfflineFlag = $false
+        if ($assignment -eq "All Devices") {
+            $AllDevicesOfflineSelection = Get-ListSelection -Title "What deployment method do you prefer" -Items "Drop AutoPilot JSON File","Collect Hardware Hashes"
+            if ($AllDevicesOfflineSelection -eq 0) {
+                $AllDevicesOfflineFlag = $true
+            }
+        }
+
         Clear-Host
         Write-Host "Please confirm the following AutoPilot Profile and Assignment" -ForegroundColor Green
         Write-Host "Profile: $($APProfile.displayName)"
         if ($assignment -eq "All Devices") {
             Write-Host "Assignment Method: All Devices"
+            if($AllDevicesOfflineFlag) {
+                Write-Host "Deployment Method: JSON File Drop"
+            } else {
+                Write-Host "Deployment Method: Hash Capture"
+            }
+            Write-Host "Deployment Method: Hash Capture"
         } else {
             if ($assignment.targetsOfflineJoin) {
                 Write-Host "Assignment Method: Offline Join JSON"
                 Write-Host "Dynamic Group: $($assignment.displayName)"
                 Write-Host "Dynamic Rule: $($assignment.dynamicRule)"
+                Write-Host "Deployment Method: JSON File Drop"
             } elseif ($assignment.isDynamic) {
                 Write-Host "Assignment Method: Dynamic Group"
                 Write-Host "Dynamic Group: $($assignment.displayName)"
                 Write-Host "Dynamic Rule: $($assignment.dynamicRule)"
+                Write-Host "Deployment Method: Hash Capture"
             } else {
                 Write-Host "Assignment Method: Static Group"
                 Write-Host "Group: $($assignment.displayName)"
+                Write-Host "Deployment Method: Hash Capture and Group Assignment"
             }
         }
         Write-Host ""
