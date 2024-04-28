@@ -69,7 +69,7 @@
                         <!-- EFI system partition (ESP) -->
                         <ModifyPartition wcm:action="add">
                             <Order>2</Order>
-                            <PartitionID>1</PartitionID>
+                            <PartitionID>2</PartitionID>
                             <Label>System</Label>
                             <Format>FAT32</Format>
                         </ModifyPartition>
@@ -79,7 +79,7 @@
                         <!-- Windows partition -->
                         <ModifyPartition wcm:action="add">
                             <Order>4</Order>
-                            <PartitionID>3</PartitionID>
+                            <PartitionID>4</PartitionID>
                             <Label>Windows</Label>
                             <Letter>C</Letter>
                             <Format>NTFS</Format>
