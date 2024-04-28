@@ -1,3 +1,6 @@
 Ventoy
 /AutoPilot/*.xml
 *.iso
+/AutoPilot/OfflineJoinFiles/*.json
+/AutoPilot/Profiles/*.json
+
