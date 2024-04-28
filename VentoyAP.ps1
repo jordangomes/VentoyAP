@@ -626,7 +626,7 @@ function New-APProfile {
         OfflineOnly = $false;
         EnrollmentProfileName = $APProfile.displayName;
         TenantId = $tenant;
-        AppId = $app.id;
+        AppId = $app.appId;
         AppSecret = $appSecret;
         LanguageSettings = $languageSelection
         AddToGroup = ""
