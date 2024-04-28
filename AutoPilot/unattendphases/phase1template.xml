@@ -75,6 +75,11 @@
                         </ModifyPartition>
 
                         <!-- MSR partition does not need to be modified -->
+                        <ModifyPartition wcm:action="add">
+                            <Order>3</Order>
+                            <PartitionID>3</PartitionID>
+                        </ModifyPartition>
+
 
                         <!-- Windows partition -->
                         <ModifyPartition wcm:action="add">
