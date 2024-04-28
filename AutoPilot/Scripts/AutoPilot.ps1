@@ -117,8 +117,10 @@ while (-not $exit) {
             $synced = Wait-ForDeviceSync -importedDevice $imported
             $addedToAP = $true
         }
+        if(-not [string]::IsNullOrEmpty($Config.AddToGroup)) {
+            Add-ToAADGroup -AutoPilotDevice $synced -group $Config.AddToGroup
+        }
         
-        Add-ToAADGroup -AutoPilotDevice $synced -group $Config.AddToGroup
         Wait-ForProfileAssignment -AutoPilotDevice $synced -Profile $Config.EnrollmentProfileName
         Write-Host "AutoPilot Hash uploaded to $ProfileName"
         $exit = $true
