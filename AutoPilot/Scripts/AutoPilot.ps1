@@ -10,7 +10,7 @@ $LogFile = "$PSScriptRoot\..\Logs\$Serial-$Date.log"
 Start-Transcript -Path $LogFile -Append
 
 # Load Config
-$Config = Get-Content "$PSScriptRoot\..\Profiles\$ProfileName.json" | ConvertFrom-Json -Depth 5
+$Config = Get-Content "$PSScriptRoot\..\Profiles\$ProfileName.json" | ConvertFrom-Json
 
 $exit = $FALSE
 $addedToAP = $FALSE
