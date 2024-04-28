@@ -647,7 +647,7 @@ function New-APProfile {
 
     Write-Host "Creating Phase 1 Unattend File" -ForegroundColor Green
     $contents = Get-Content "$AutoPilotPath\unattendphases\phase1template.xml"
-    $script = "powershell -NoProfile -ExecutionPolicy Bypass -Command `"67..90|%{[Char]`$PSItem}|%{if(Test-Path `$(`$_+':\AutoPilot\Scripts\run.ps1')){&`$(`$_+':\AutoPilot\run.ps1') -ProfileName '$name' -Phase '1'}}`"" 
+    $script = "powershell -NoProfile -ExecutionPolicy Bypass -Command `"67..90|%{[Char]`$PSItem}|%{if(Test-Path `$(`$_+':\AutoPilot\Scripts\run.ps1')){&`$(`$_+':\AutoPilot\run.ps1') -ProfileName '$APProfileName' -Phase '1'}}`"" 
     $newContents = $contents.Replace("{{UILanguage}}", $languageSelection.UILanguage)
     $newContents = $newContents.Replace("{{InputLocale}}", $languageSelection.InputLocale)
     $newContents = $newContents.Replace("{{SystemLocale}}", $languageSelection.SystemLocale)
