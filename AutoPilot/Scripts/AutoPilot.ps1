@@ -1,13 +1,6 @@
 #CONFIG
 param (
-    [Parameter(Mandatory=$true)] $ProfileName,
-    [Parameter(Mandatory=$true)] $TenantId,
-    [Parameter(Mandatory=$true)] $AppId,
-    [Parameter(Mandatory=$true)] $AppSecret,
-    [Parameter(Mandatory=$true)] $AddToGroup,
-    [Parameter(Mandatory=$true)] $EnrollmentProfileName,
-    [Parameter()] $NextScript
-
+    [Parameter(Mandatory=$true)] $ProfileName
 )
 
 # Setup Logging
@@ -16,9 +9,19 @@ $Date = Get-Date -Format "yyyyMMdd"
 $LogFile = "$PSScriptRoot\..\Logs\$Serial-$Date.log"
 Start-Transcript -Path $LogFile -Append
 
+# Load Config
+$Config = Get-Content "$PSScriptRoot\..\Profiles\$ProfileName.json" | ConvertFrom-Json -Depth 5
+
 $exit = $FALSE
 $addedToAP = $FALSE
 while (-not $exit) {
+
+    if ($OfflineOnly -eq $true) {
+        Write-Host "Offline Only Mode - Skipping Hash Collection"
+        $exit = $true
+        break
+    }
+
     # Wait for Internet Connection
     $internet = $false
     while ($internet -eq $false) {
@@ -86,10 +89,14 @@ while (-not $exit) {
     }
 
     try {
-        Connect-MSGraphApp -Tenant $TenantId -AppId $AppId -AppSecret $AppSecret
+        if([string]::IsNullOrEmpty($Config.AppSecret)) {
+            Connect-MgGraph -Scopes "DeviceManagementServiceConfig.ReadWrite.All", "DeviceManagementManagedDevices.ReadWrite.All", "Device.ReadWrite.All", "Group.ReadWrite.All", "GroupMember.ReadWrite.All"
+        } else {
+            Connect-MSGraphApp -Tenant $Config.TenantId -AppId $Config.AppId -AppSecret $Config.AppSecret
+        }
         $device = Get-AutopilotDevice -serial $serial
         if ($device) {
-            Write-Host "Device already exists in AutoPilot will check if it is in $EnrollmentProfileName"
+            Write-Host "Device already exists in AutoPilot will check if it is in $($Config.EnrollmentProfileName)"
             $addedToAP = $true
             $synced = $device
         }
@@ -112,7 +119,7 @@ while (-not $exit) {
         }
         
         Add-ToAADGroup -AutoPilotDevice $synced -group $AddToGroup
-        Wait-ForProfileAssignment -AutoPilotDevice $synced -Profile $EnrollmentProfileName
+        Wait-ForProfileAssignment -AutoPilotDevice $synced -Profile $Config.EnrollmentProfileName
         Write-Host "AutoPilot Hash uploaded to $ProfileName"
         $exit = $true
     } catch {
@@ -128,8 +135,8 @@ while (-not $exit) {
 
 # Copy AutoPilot Configuration File to System to force it to join AutoPilot
 try {
-    Write-Host "Copying AutoPilot Config File $ProfileName to System"
-    Copy-Item -Path "$PSScriptRoot\..\ConfigFiles\$($ProfileName).json" -Destination "C:\Windows\Provisioning\Autopilot\AutoPilotConfigurationFile.json" -Force
+    Write-Host "Copying AutoPilot Offline Join File $ProfileName to System"
+    Copy-Item -Path "$PSScriptRoot\..\OfflineJoinFiles\$($ProfileName).json" -Destination "C:\Windows\Provisioning\Autopilot\AutoPilotConfigurationFile.json" -Force
 } catch {
     Write-Error "[ERROR] $(Get-Date -Format "dd-MM-yy HH:mm:ss") Error copying file `n $($_.Exception.ToString())"
     Read-Host -Prompt "Press any key to continue"
@@ -137,15 +144,20 @@ try {
 
 try {
     Write-Host "Copying Phase 3 Unattend file to System"
-    Copy-Item -Path "$PSScriptRoot\..\unattendphases\phase3.xml" -Destination "C:\Windows\Panther\Unattend\Unattend.xml" -Force
+    $contents = Get-Content "$PSScriptRoot\..\unattendphases\phase3.xml"
+    $newContents = $contents.Replace("{{UILanguage}}", $Config.LanguageSettings.UILanguage)
+    $newContents = $newContents.Replace("{{InputLocale}}", $Config.LanguageSettings.InputLocale)
+    $newContents = $newContents.Replace("{{SystemLocale}}", $Config.LanguageSettings.SystemLocale)
+    $newContents = $newContents.Replace("{{UserLocale}}", $Config.LanguageSettings.UserLocale)
+    $newContents -join "`r`n" | Out-File -FilePath "C:\Windows\Panther\Unattend\Unattend.xml" -NoNewline -Encoding "UTF8" -Force
 } catch {
     Write-Error "[ERROR] $(Get-Date -Format "dd-MM-yy HH:mm:ss") Error copying file `n $($_.Exception.ToString())"
     Read-Host -Prompt "Press any key to continue"
 }
 
-if($NextScript) {
-    Write-Host "Running Next Script - $NextScript"
-    &"$PSScriptRoot\$NextScript"
+if($Config.NextScript) {
+    Write-Host "Running Next Script - $($Config.NextScript)"
+    &"$PSScriptRoot\$($Config.NextScript)"
 }
 
 Stop-Transcript -ErrorAction SilentlyContinue

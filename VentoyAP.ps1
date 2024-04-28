@@ -12,6 +12,8 @@ $VentoyPath = "$PSScriptRoot\ventoy"
 $VentoyJson = "$VentoyPath\ventoy.json"
 $AutoPilotPath = "$PSScriptRoot\AutoPilot"
 $AutoPilotScriptPath = "$AutoPilotPath\Scripts"
+$DefaultScopes = "Device.ReadWrite.All", "DeviceManagementManagedDevices.ReadWrite.All", "DeviceManagementServiceConfig.ReadWrite.All", "Domain.Read.All", "Group.ReadWrite.All", "GroupMember.ReadWrite.All", "User.Read"
+$AppAuthScopes = "Application.ReadWrite.All","Device.ReadWrite.All", "DeviceManagementManagedDevices.ReadWrite.All", "DeviceManagementServiceConfig.ReadWrite.All", "Domain.Read.All", "Group.ReadWrite.All", "GroupMember.ReadWrite.All", "User.Read"
 
 #Import Modules
 Import-Module "$AutoPilotScriptPath\VentoyAPHelpers.psm1"
@@ -47,7 +49,7 @@ function Get-AutoInstallMenu {
             $addAPProfile = Get-YesNo -Prompt "No AutoPilot profiles found, would you like to create one (y/n)?"
 
             if($addAPProfile) {
-                New-APProfile
+                New-APProfile -ISO $ISO.Name
             } else {
                 break
             }
@@ -57,7 +59,7 @@ function Get-AutoInstallMenu {
             if($null -eq $addAPProfile) {
                 break
             } elseif ($addAPProfile -eq 1) {
-                New-APProfile
+                New-APProfile -ISO $ISO.Name
             } else {
                 $AutoInstalls = Get-AutoInstalls -VentoyJson $VentoyJson -ISO $ISO.Name
                 $i = 0;
@@ -93,12 +95,17 @@ function Get-AutoInstallMenu {
 }
 
 function New-APProfile {
+    param(
+        $ISO
+    )
+
     Clear-Host
     $languageSelection = @{}
     $APProfileName = ""
     $diskID = ""
     $key = ""
     $timezone = ""
+    $assignment = $null
 
     # PROFILE NAME
     while ($true) {
@@ -123,7 +130,7 @@ function New-APProfile {
     # LANGUAGE SELECTION
     while ($true) {
         $languageSelection = @{}
-        $locales = Import-Csv "$AutoPilotPath\Scripts\data\locales.csv"
+        $locales = Import-Csv "$AutoPilotScriptPath\data\locales.csv"
         $systemLocales = $locales | Where-Object { $_.System -eq "Yes" }
 
         $InputLocale = Search-List -Prompt "Please search for a input language e.g. English (Australia)" -Items $locales.LanguageName
@@ -218,7 +225,7 @@ function New-APProfile {
 
     # KEY SELECTION
     while ($true) {
-        $kmsKeys = Import-Csv "$AutoPilotPath\Scripts\data\kmskeys.csv"
+        $kmsKeys = Import-Csv "$AutoPilotScriptPath\data\kmskeys.csv"
         $options = @("Use my own key")
         foreach($kmsKey in $kmsKeys) {
             $options += "$($kmsKey.Product) (KMS Key)" 
@@ -249,7 +256,7 @@ function New-APProfile {
 
     # TIMEZONE SELECTION
     while ($true) {
-        $timezones = Import-Csv "$AutoPilotPath\Scripts\data\timezones.csv"
+        $timezones = Import-Csv "$AutoPilotScriptPath\data\timezones.csv"
         $timezoneOption = Search-List -Prompt "Search for a default timezone (esc to quit)" -Items $timezones.Name -AllowCancel
         
         if ($timezoneOption -gt 0 -and $timezoneOption -le $timezones.Count - 1) {
@@ -279,26 +286,52 @@ function New-APProfile {
     Start-Sleep 2
     Clear-Host
 
-    
-    $module = Import-Module microsoft.graph.authentication -PassThru -ErrorAction Ignore
-    if (-not $module) {
+    try {
+        $windowsAutoPilotIntune = Import-Module WindowsAutoPilotIntune -PassThru -Force -ErrorAction Ignore
+    } catch {
+        if($_.Exception.Message -match "Assembly with same name is already loaded") {
+            Write-Host "Module WindowsAutoPilotIntune already loaded" -ForegroundColor Yellow
+            $windowsAutoPilotIntune = $true
+        }
+    }
+
+    try {
+        $graphAuth = Import-Module microsoft.graph.authentication -PassThru -Force -ErrorAction Ignore
+    } catch {
+        if($_.Exception.Message -match "Assembly with same name is already loaded") {
+            Write-Host "Module microsoft.graph.authentication already loaded" -ForegroundColor Yellow
+            $graphAuth = $true
+        }
+    }
+
+
+    if (-not $graphAuth -or -not $windowsAutoPilotIntune) {
         Write-Host "Installing Required Modules" -ForegroundColor Green
         $provider = Get-PackageProvider NuGet -ErrorAction Ignore
         if (-not $provider) {
             Write-Host "Installing provider NuGet"
             Find-PackageProvider -Name NuGet -ForceBootstrap -IncludeDependencies
         }
-        Write-Host "Installing module microsoft.graph.authentication"
-        Install-Module Microsoft.Graph.Authentication -Force
+        if (-not $graphAuth) {
+            Write-Host "Installing module microsoft.graph.authentication"
+            Install-Module Microsoft.Graph.Authentication -Force
+        }
+        if (-not $windowsAutoPilotIntune) {
+            Write-Host "Installing module WindowsAutoPilotIntune"
+            Install-Module WindowsAutoPilotIntune -Force
+        }
     }
-    Import-Module Microsoft.Graph.Authentication
+
+    Import-Module WindowsAutoPilotIntune -Force
+
+
 
     $authenticated = $false
     $attempts = 1
     while (-not $authenticated) {
         Write-Host "Login to Microsoft Graph"
         try {
-            Connect-MgGraph -NoWelcome -ErrorAction Stop
+            Connect-MgGraph -Scopes $DefaultScopes -NoWelcome -ErrorAction Stop
             $authenticated = $true
         } catch {
             if($attempts -ge 3) {
@@ -387,6 +420,14 @@ function New-APProfile {
             }
         }
 
+        $requireLogin = $true
+        if(-not $AllDevicesOfflineFlag -and -not $assignment.targetsOfflineJoin) {
+            $authMethod = Get-ListSelection -Title "What authentication method do you prefer" -Items "Require Login","Application Secret (Requires Application Administrator Role to setup)"
+            if ($authMethod -eq 1) {
+                $requireLogin = $false
+            }
+        }
+
         Clear-Host
         Write-Host "Please confirm the following AutoPilot Profile and Assignment" -ForegroundColor Green
         Write-Host "Profile: $($APProfile.displayName)"
@@ -397,7 +438,6 @@ function New-APProfile {
             } else {
                 Write-Host "Deployment Method: Hash Capture"
             }
-            Write-Host "Deployment Method: Hash Capture"
         } else {
             if ($assignment.targetsOfflineJoin) {
                 Write-Host "Assignment Method: Offline Join JSON"
@@ -415,12 +455,215 @@ function New-APProfile {
                 Write-Host "Deployment Method: Hash Capture and Group Assignment"
             }
         }
+        if($requireLogin) {
+            Write-Host "Authentication Method: Login"
+        } else {
+            Write-Host "Authentication Method: Application Secret"
+        }
         Write-Host ""
         $confirm = Get-YesNo -Inline -AllowCancel
+        if($confirm -eq $true) {
+            break
+        } elseif ($confirm -eq $false){
+            continue
+        } else {
+            return $null
+        }
     }
 
-    Start-Sleep -Seconds 10
+    Clear-Host
+    Write-Host "Creating AutoPilot Profile" -ForegroundColor Green
 
+    # APP SETUP
+    if(-not $requireLogin) {
+        Write-Host "Please login with Application Administrator credentials" -ForegroundColor Green
+
+        $appAdminAuthenticated = $false
+        $appAdminAttempts = 1
+        while (-not $appAdminAuthenticated) {
+            Write-Host "Login to Microsoft Graph"
+            try {
+                Connect-MgGraph -Scopes $AppAuthScopes -NoWelcome -ErrorAction Stop
+                $appAdminAuthenticated = $true
+            } catch {
+                if($appAdminAttempts -ge 3) {
+                    Write-Error "Unable to authenticate to Microsoft Graph with Application Administrator (3 failed attempts - quitting)`n$_"
+                    Start-Sleep -Seconds 10
+                    continue
+                }
+                Write-Error "Unable to authenticate to Microsoft Graph with Application Administrator (trying again in 10s)`n$_"
+                Start-Sleep -Seconds 10
+                $appAdminAttempts++
+            }
+        }
+
+        $tenant = ""
+        try {
+            $tenantDetails = Invoke-MGGraphRequest -Uri "$graphApiUri/organization" -Method Get
+            $tenant = $tenantDetails.value.id
+        } catch {
+            Write-Error "Unable to get Tenant Details`n$_"
+            Start-Sleep -Seconds 10
+            return $null
+        }
+
+        $apps = @()
+        try {
+            $appsResponse = invoke-MGGraphRequest -Uri "$graphApiUri/applications"
+            $apps += $appsResponse.value
+            $appsNextLink = $response."@odata.nextLink"
+
+            while ($null -ne $appsNextLink){
+                $appsResponse = (Invoke-MgGraphRequest -Uri $appsNextLink -Method Get)
+                $appsNextLink = $appsResponse."@odata.nextLink"
+                $apps += $appsResponse.value
+            }
+        } catch {
+            Write-Error "Unable to get Applications from Microsoft Graph`n$_"
+            Start-Sleep -Seconds 10
+            return $null
+        }
+
+        if($apps.displayName -contains "VentoyAP") {
+            Write-Host "Found VentoyAP Application" -ForegroundColor Green
+            $app = $apps | Where-Object { $_.displayName -eq "VentoyAP" }
+        } else {
+            $app = $null
+            Write-Host "Unable to Find VentoyAP Application - setting it up" -ForegroundColor Green
+            $newApplicationBody = @{ 
+                displayName = "VentoyAP"; 
+                requiredResourceAccess = @(
+                    @{
+                        resourceAppId = "00000003-0000-0000-c000-000000000000";
+                        resourceAccess = @(
+                            @{id = "e1fe6dd8-ba31-4d61-89e7-88639da4683d";type = "Scope"},
+                            @{id = "1138cb37-bd11-4084-a2b7-9f71582aeddb";type = "Role"},
+                            @{id = "243333ab-4d21-40cb-a475-36241daa0842";type = "Role"},
+                            @{id = "5ac13192-7ace-4fcf-b828-1a26f28068ee";type = "Role"},
+                            @{id = "62a82d76-70ea-41e2-9197-370581804d09";type = "Role"},
+                            @{id = "dbaae8cf-10b5-4b86-a4a1-f871c94c6695";type = "Role"}
+                        )
+                    }
+                )
+            }
+
+            $newApplicationBodyJson = $newApplicationBody | ConvertTo-Json -Depth 5
+
+            try {
+                $app = Invoke-MGGraphRequest -Uri "$graphApiUri/applications" -Method Post -Body $newApplicationBodyJson
+            } catch {
+                Write-Error "Unable to create VentoyAP Application`n$_"
+                Start-Sleep -Seconds 10
+                return $null
+            }
+
+        }
+
+        #SECRET PERIOD SELECTION
+        while ($true) {
+            Clear-Host
+            $secretName = Read-Host "Enter the name of the Application Secret e.g. Jordans USB - Brisbane"
+
+            $SecretPeriods = @(
+                @{Name = "90 Days (3 Months)"; Value = 90},
+                @{Name = "180 Days (6 Months)"; Value = 180},
+                @{Name = "365 Days (1 Year)"; Value = 365},
+                @{Name = "730 Days (2 Years)"; Value = 730}
+            )
+            $secretPeriodSelection = Get-ListSelection -Title "Select the period for the Application Secret" -Items $SecretPeriods.Name -AllowCancel
+            if ($null -eq $secretPeriodSelection) {
+                return $null
+            } else {
+                $secretPeriod = $SecretPeriods[$secretPeriodSelection].Value
+                $startDate = Get-Date
+                $endDate = $startDate.AddDays($secretPeriod)
+            }
+
+            Clear-Host
+            Write-Host "Please confirm the following Application Secret settings" -ForegroundColor Green
+            Write-Host "Secret Name: $secretName"
+            Write-Host "Secret Period: $($SecretPeriods[$secretPeriodSelection].Name)"
+            Write-Host "Start Date: $($startDate.ToString("dd-MM-yyyy"))"
+            Write-Host "End Date: $($endDate.ToString("dd-MM-yyyy"))"
+            Write-Host ""
+            $confirm = Get-YesNo -Inline -AllowCancel
+            if($confirm -eq $true) {
+                break
+            } elseif ($confirm -eq $false){
+                continue
+            } else {
+                return $null
+            }
+        }
+
+        #SECRET CREATION
+        $appSecret = ""
+        try {
+            $newSecretBody = @{
+                displayName = $secretName;
+                endDateTime = Get-Date $endDate.ToUniversalTime() -UFormat '+%Y-%m-%dT%H:%M:%S.000Z'
+                startDateTime = Get-Date $startDate.ToUniversalTime() -UFormat '+%Y-%m-%dT%H:%M:%S.000Z'
+            }
+            $newSecretBodyJson = $newSecretBody | ConvertTo-Json
+            $appSecretResponse = Invoke-MGGraphRequest -Uri "$graphApiUri/applications/$($app.id)/addPassword" -Method Post -Body $newSecretBodyJson
+            $appSecret = $appSecretResponse.secretText
+            Write-Host "Application Secret Created" -ForegroundColor Green
+            Write-Host "Name: $($appSecretResponse.displayName)"
+            Write-Host "Secret: $($appSecretResponse.secretText)"
+        } catch {
+            Write-Error "Unable to create VentoyAP Application Secret`n$_"
+            Start-Sleep -Seconds 10
+            return $null
+        }
+    }
+
+    Clear-Host
+    Write-Host "Setting Up AutoPilot Profile for Ventoy" -ForegroundColor Green
+    Start-Sleep -Seconds 2
+
+    # CREATE PROFILE
+    $profileObject = @{
+        OfflineOnly = $false;
+        EnrollmentProfileName = $APProfile.displayName;
+        TenantId = $tenant;
+        AppId = $app.id;
+        AppSecret = $appSecret;
+        LanguageSettings = $languageSelection
+    }
+    if ($AllDevicesOfflineFlag -or $assignment.targetsOfflineJoin) {
+        $profileObject.OfflineOnly = $true
+    }
+
+    $profileJson = $profileObject | ConvertTo-Json -Depth 5
+    $profileJson | Set-Content -Path "$AutoPilotPath\Profiles\$APProfileName.json" -Encoding Ascii -Force
+
+
+    Write-Host "Creating Offline Join JSON File" -ForegroundColor Green
+    $offlineProfileJSON = $APProfile | ConvertTo-AutopilotConfigurationJSON
+    $offlineProfileJSON | Set-Content -Path "$AutoPilotPath\OfflineJoinFiles\$APProfileName.json" -Encoding Ascii -Force
+
+    Write-Host "Creating Phase 1 Unattend File" -ForegroundColor Green
+    $contents = Get-Content "$AutoPilotPath\unattendphases\phase1template.xml"
+    $script = "powershell -NoProfile -ExecutionPolicy Bypass -Command `"67..90|%{[Char]`$PSItem}|%{if(Test-Path `$(`$_+':\AutoPilot\Scripts\run.ps1')){&`$(`$_+':\AutoPilot\run.ps1') -ProfileName '$name' -Phase '1'}}`"" 
+    $newContents = $contents.Replace("{{UILanguage}}", $languageSelection.UILanguage)
+    $newContents = $newContents.Replace("{{InputLocale}}", $languageSelection.InputLocale)
+    $newContents = $newContents.Replace("{{SystemLocale}}", $languageSelection.SystemLocale)
+    $newContents = $newContents.Replace("{{UserLocale}}", $languageSelection.UserLocale)
+    $newContents = $newContents.Replace("{{DiskID}}", $diskID)
+    $newContents = $newContents.Replace("{{ProductKey}}", $key)
+    $newContents = $newContents.Replace("{{TimeZone}}", $timezone)
+    $newContents = $newContents.Replace("{{CopyPhase2}}", $script)
+    $newContents -join "`r`n" | Out-File -FilePath "$AutoPilotPath\$APProfileName.xml" -NoNewline -Encoding "UTF8" -Force
+
+    Write-Host "AutoPilot Profile Created" -ForegroundColor Green
+    Start-Sleep -Seconds 2
+
+    if([string]::IsNullOrEmpty($ISO)) {
+        Write-Host "Activating AutoPilot Profile " -ForegroundColor Green
+        Add-AutoInstall -VentoyJson $VentoyJson -ISO $ISO -UnattendFile "$APProfileName.xml"
+    }
+
+    Start-Sleep -Seconds 5
 } 
 #endregion
 

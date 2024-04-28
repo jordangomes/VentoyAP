@@ -9,12 +9,10 @@ try {
         &"$PSScriptRoot\CopyPhase2.ps1" -name $ProfileName
     } elseif($Phase -eq "2") {
         Write-Host "Running Phase 2"
-        if(Test-Path "$PSScriptRoot\..\Profiles\$ProfileName.psd1") {
-            Write-Host "Profile Exists"
-            $ProfileArgs = Import-PowerShellDataFile -Path "$PSScriptRoot\..\Profiles\$ProfileName.psd1"
-            &"$PSScriptRoot\AutoPilot.ps1" @ProfileArgs
+        if(Test-Path "$PSScriptRoot\..\Profiles\$ProfileName.json") {
+            &"$PSScriptRoot\AutoPilot.ps1" -ProfileName $ProfileName
         } else {
-            Write-Host "Profile Not Found - $PSScriptRoot\..\Profiles\$ProfileName.psd1"
+            Write-Host "Profile Not Found - $PSScriptRoot\..\Profiles\$ProfileName.json"
         }
     } else {
         Write-Host "Invalid Phase"
