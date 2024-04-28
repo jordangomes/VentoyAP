@@ -557,6 +557,8 @@ function New-APProfile {
                 return $null
             }
 
+            # TODO: Grant Admin Consent (or prompt user to) if not already granted
+
         }
 
         #SECRET PERIOD SELECTION
