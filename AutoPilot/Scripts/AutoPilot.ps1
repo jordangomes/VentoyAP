@@ -118,7 +118,7 @@ while (-not $exit) {
             $addedToAP = $true
         }
         
-        Add-ToAADGroup -AutoPilotDevice $synced -group $AddToGroup
+        Add-ToAADGroup -AutoPilotDevice $synced -group $Config.AddToGroup
         Wait-ForProfileAssignment -AutoPilotDevice $synced -Profile $Config.EnrollmentProfileName
         Write-Host "AutoPilot Hash uploaded to $ProfileName"
         $exit = $true

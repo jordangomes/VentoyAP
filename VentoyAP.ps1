@@ -629,9 +629,12 @@ function New-APProfile {
         AppId = $app.id;
         AppSecret = $appSecret;
         LanguageSettings = $languageSelection
+        AddToGroup = ""
     }
     if ($AllDevicesOfflineFlag -or $assignment.targetsOfflineJoin) {
         $profileObject.OfflineOnly = $true
+    } else {
+        $profileObject.AddToGroup = $assignment.displayName
     }
 
     $profileJson = $profileObject | ConvertTo-Json -Depth 5
