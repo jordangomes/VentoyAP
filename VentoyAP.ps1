@@ -556,8 +556,16 @@ function New-APProfile {
                 Start-Sleep -Seconds 10
                 return $null
             }
-
-            # TODO: Grant Admin Consent (or prompt user to) if not already granted
+            
+            # wait for application to show in the portal (better than getting an error when clicking the link lol)
+            Write-Host "..."
+            Start-Sleep -Seconds 30 
+            Write-Host "VentoyAP Application Created" -ForegroundColor Green
+            Write-Host ""
+            Write-Host "Please grant admin consent to the application in the Azure Portal and confirm once done" -ForegroundColor Yellow
+            Write-Host "Link: https://entra.microsoft.com/#view/Microsoft_AAD_RegisteredApps/ApplicationMenuBlade/~/CallAnAPI/appId/$($app.appId)/isMSAApp~/false"
+            Write-Host ""
+            $confirm = Get-YesNo -Inline -AllowCancel
 
         }
 
