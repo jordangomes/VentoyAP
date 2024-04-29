@@ -602,9 +602,11 @@ function New-APProfile {
         $appSecret = ""
         try {
             $newSecretBody = @{
-                displayName = $secretName;
-                endDateTime = Get-Date $endDate.ToUniversalTime() -UFormat '+%Y-%m-%dT%H:%M:%S.000Z'
-                startDateTime = Get-Date $startDate.ToUniversalTime() -UFormat '+%Y-%m-%dT%H:%M:%S.000Z'
+                passwordCredential = @{
+                    displayName = $secretName;
+                    endDateTime = Get-Date $endDate.ToUniversalTime() -UFormat '+%Y-%m-%dT%H:%M:%S.000Z';
+                    startDateTime = Get-Date $startDate.ToUniversalTime() -UFormat '+%Y-%m-%dT%H:%M:%S.000Z'
+                }
             }
             $newSecretBodyJson = $newSecretBody | ConvertTo-Json
             $appSecretResponse = Invoke-MGGraphRequest -Uri "$graphApiUri/applications/$($app.id)/addPassword" -Method Post -Body $newSecretBodyJson
